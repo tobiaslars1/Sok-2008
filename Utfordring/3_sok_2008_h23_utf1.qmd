@@ -1,0 +1,243 @@
+---
+title: "3_sok_2008_h23_utf1"
+author: "3"
+format: html
+---
+
+# Utfordring 1
+
+```{r}
+# Loading packages i need. 
+rm(list = ls())
+suppressPackageStartupMessages({
+library(tidyverse)
+library(dplyr)
+library(jsonlite)
+library(httr)
+library(jsonstat)
+library(rjstat)
+library(ggplot2)
+library(eurostat)
+library(rmarkdown)
+})
+
+```
+
+```{r}
+# Importing all the dataframes for the task. 
+url <- "https://data.ssb.no/api/v0/no/table/04544/"
+
+query <- '{
+  "query": [
+    {
+      "code": "Kjonn",
+      "selection": {
+        "filter": "item",
+        "values": [
+          "0",
+          "1",
+          "2"
+        ]
+      }
+    },
+    {
+      "code": "Yrkesstatus",
+      "selection": {
+        "filter": "item",
+        "values": [
+          "00",
+          "01",
+          "02",
+          "03"
+        ]
+      }
+    }
+  ],
+  "response": {
+    "format": "json-stat2"
+  }
+}'
+
+hent_indeks.tmp <- url %>%
+  POST(body = query, encode = "json")
+
+AKU <- hent_indeks.tmp %>%
+  content("text") %>%
+  fromJSONstat() %>%
+  as_tibble()
+
+
+df <- read.csv("https://raw.githubusercontent.com/uit-sok-2008-h23/uit-sok-2008-h23.github.io/main/assets/women.csv", sep = ";")
+```
+
+## Utfordring 1.1
+
+-   ***Statistisk Sentral Byrå (SSB) har [data](https://data.ssb.no/api/v0/no/table/04544/) (tabell 04544) som viser gjennomsnittlig antall arbeidstimer blant menn og kvinner i Norge. Bruk disse dataene for å vise empiriske kjønnsforskjeller i valg av arbeidstimer for menn og kvinner. Forklar dine empiriske observasjoner ved bruk av økonomisk teori. Din forklaring skal inneholde grafisk illustrasjon av teorien. NB: i denne oppgaven skal du fokusere på forskjeller mellom menn og kvinner.***
+
+Forskjeller mellom kvinner og menn når det kommer til arbeidsmarkedet, og arbeidstimer i uka som denne oppgaven går ut på har flere forklaringer. Historisk sett så kan tradisjonelle kjønnsroller vært med å forme arbeidsfordelingen mellom menn og kvinner. Før i tiden var det mannen som jobbet for familiens inntekt, mens kvinner hadde ansvar for hjemmet og ungene, disse rollene har vi ikke nå for tiden, men de kan fortsatt ha ettervirkninger.  Kvinner i Norge har oftere deltidsstillinger enn menn, dette kan ha flere forklaringer, et skriv i SSB beskriver at «*En av forklaringene på at mange kvinner jobber deltid er mindre grad av yrkesspredning blant kvinner, sammenliknet med menn. Over en fjerdedel av alle kvinnelige lønnstakere jobber i de tre mest kvinnedominerte yrkene. Særlig er helse- og omsorg er kvinnedominert, og deltidsarbeid er utbredt.*» (Gram, 2022)
+
+```{r}
+# Making a new dataframe with the relevant values. 
+AKU1 <- AKU[AKU$kjønn %in% c('Menn', 'Kvinner'), ]
+AKU1 <- AKU1[AKU1$statistikkvariabel %in% ('Faktisk arbeidstid (timer per uke)'), ]
+AKU1 <- AKU1[AKU1$yrkesstatus %in% ('I alt'), ]
+
+# Making a new dataframe with the relevant values. 
+AKU2 <- AKU[AKU$kjønn %in% c('Menn', 'Kvinner'), ]
+AKU2 <- AKU2[AKU2$statistikkvariabel %in% ('Sysselsatte i alt (1 000 personer)'), ]
+AKU2 <- AKU2[AKU2$yrkesstatus %in% ('I alt'), ]
+```
+
+```{r, warning=FALSE}
+# Linegraph over working-hours between men and women. 
+fig1 <- ggplot(data = AKU1, aes(x = år, y = value, color = kjønn, group = kjønn)) +
+  geom_line(alpha = 1,
+            size = 1) +
+  labs(x = "År",
+       y = "Antall arbeidstimer i uken",
+       title = "Figur 1 - Arbeidstid (timer per uke)",
+       subtitle = "Menn og Kvinner",
+       caption = "Kilde: SSB tabell 04544") +
+  scale_colour_manual(
+                      values = c("darkred", "steelblue")) +
+  scale_x_discrete(breaks = unique(AKU1$år[seq(1, length(AKU1$år), by = 3)])) +
+  theme_bw()
+
+# Showing fig1.   
+fig1
+```
+
+Figur 1 viser antall arbeidstimer i uken mellom menn og kvinner fra 1996 til 2021. På denne ser man at utviklingen blant menn er synkende fra 39.5 til 36.1 timer i uken, og blant kvinner har det økt fra 30.1 til 31 timer i uken. Spriket mellom menn og kvinner er blitt mindre i nyere tid, men det ligger fortsatt på 5.1 timer differanse.
+
+```{r}
+# Linegraph showing employment between men and women. 
+fig2 <- ggplot(data = AKU2, aes(x = år, y = value, color = kjønn, group = kjønn)) +
+  geom_line(alpha = 1,
+            size = 1) +
+  labs(x = "År",
+       y = "Antall sysselsatte",
+       title = "Figur 2 - Sysselsatte i alt",
+       subtitle = "(1 000 personer)",
+       caption = "Kilde: SSB tabell 04544") +
+  scale_colour_manual(
+                      values = c("darkred", "steelblue")) +
+  scale_x_discrete(breaks = unique(AKU2$år[seq(1, length(AKU2$år), by = 3)])) +
+  theme_bw()
+
+# Showing fig2.   
+fig2
+```
+
+Figur 2 viser utviklingen i antall sysselsatte for menn og kvinner i samme tidsrom. Utviklingen blant både menn og kvinner viser omtrent samme trender. Økningene er henholdsvis 1 154 000 til 1 507 000 (353 000) blant menn og 978 000 til 1 342 000 (364 000) hos kvinner.
+
+![vedlegg 1](images/Skjermbilde%202023-09-22%20kl.%2001.18.11.png)
+
+På vedlegg 1 har jeg laget en kurve som viser korrelasjonen mellom valg av heltid og deltid, denne viser at dersom man må velge mellom heltid og deltid er reservasjonslønnen høyere enn hvis det hadde vært fritt valg av disse.
+
+-   [***Dette datasettet***](https://github.com/uit-sok-2008-h23/uit-sok-2008-h23.github.io/blob/main/assets/women.csv) ***inneholder informasjon om generøsiteten av foreldrepermisjonsordninger og mødres yrkesdeltakelse i 24 OECD land i 2021. For å gjøre ulike lands rettigheter sammenlignbare presenteres permisjonsordningenes gunstighet ved hjelp av «full rate equivalent» (uker med 100% støtte), hvilket tilsvarer foreldrepermisjonens varighet i uker multiplisert med utbetalingssats i prosent av gjennomsnittlig inntekt. Variabelen «tot_full_rate» beskriver sysselsettingsraten i befolkningen (menn og kvinner). Bruk datasettet til å lage to diagrammer som viser sammenhengen mellom lengde på betalt foreldrepermisjon og yrkesdeltakelse blant kvinner. I det ene diagrammet skal du bruke data som beskriver sysselsetting blant kvinner med barn i alderen 0-2 år (fem_emp_rate_0_2), og det andre skal du bruke data på kvinner med barn i alderen 6-14 år (fem_emp_rate_6_14). Diskuter, basert på disse diagrammene og økonomisk teori, følgende påstand: «Gunstige permisjonsordninger ved fødsel sikrer høy yrkesdeltakelse blant kvinner på lang sikt».***
+
+Støtteordninger til foreldre er noe vi har hatt i Norge siden 60-tallet, i form av barnetrygd for mor og barn. Dette kom som et svar på synkende fødselstall på 1900-tallet og til 30-tallet. Målene med denne type familiepolitikk er og for det første sikre en vekst i befolkningen på lang sikt, og øke skatteinntekter på kort sikt, samt øke velferd og likestilling. Likestillingen økes ved at man feks har pappa-perm, dette vil minke forskjeller i arbeidsgiverens kostnader for menn, men samtidig gjøre slik at det ikke oppleves som ugunstig å ansette eller promotere kvinner.
+
+```{r}
+# scatter showing employment between men and women with children. 
+fig3 <- ggplot(data = df, aes(x = tot_full_rate, y = fem_emp_rate_0_2)) +
+  geom_point() +
+  geom_text(aes(label = country), vjust = -1, size = 2.5) +
+  geom_smooth(method = lm) +
+  labs(x = "Uker med 100% støtte",
+       y = "Sysselsetting barn 0-2 år",
+       title = "Figur 3 - Foreldrepermisjon 2021") +
+  theme_bw()
+
+# Showing fig3.   
+fig3
+```
+
+Figur 3 viser en oversikt på foreldrepermisjon for menn og kvinner med barn på mellom 0 og 2 år, blant 24 OECD land i 2021. På x-aksen er det oversikt over uker med 100% støtte mens på y-aksen er der sysselsettingsraten blant menn og kvinner når barnet er mellom 0 og 2 år. Land med flest uker med støtte som Estland (82), Slovakia (67.4) og Ungarn (64) har lavest sysselsettingsrate henholdsvis 27.3, 18.3 og 13.9, dette kan skyldes at man er hjemme med barnet og ikke i arbeid. Land med lavt antall uker med full støtte som USA (0), Irland(7.8) og UK (11.3) har relativ høy yrkesdeltakelse i perioden på 58.4, 62.1, 63.6 dette nok fordi de må fortsette i arbeid for å finansiere barnet og familien.
+
+```{r}
+# Linegraph showing employment between men and women with children. 
+fig4 <- ggplot(data = df, aes(x = tot_full_rate, y = fem_emp_rate_6_14)) +
+  geom_point() +
+  geom_text(aes(label = country), vjust = -1, size = 2.5) +
+  geom_smooth(method = lm) +
+  labs(x = "Uker med 100% støtte",
+       y = "Sysselsetting barn 6-14 år",
+       title = "Figur 4 - Foreldrepermisjon") +
+  theme_bw()
+
+# Showing fig4.   
+fig4
+```
+
+Figur 4 viser oversikt over det samme som figur 3 men istedenfor sysselsetting på kvinner og menn med barn 0 til 2 er dette om sysselsetting blant kvinner og menn med barn på 6 til 14. denne viser at sysselsettingsraten blant landene med mest støtte har økt drastisk med henholdsvis 215%, 339% og 434% noe som sier oss at for disse landene har gunstige foreldrepermisjonsløsninger sikret høy sysselsettingsrate. Landene med minst uker støtte har en endring i sysselsettingsrate på 21%, -5% og 17%, dette viser at det er økning her og utenom Irland, men på ingen måte like stor økning som landene med gunstigere ordninger.
+
+[![Vedlegg 2](images/Skjermbilde%202023-09-21%20kl.%2017.46.12.png){fig-align="left"}](https://uit-sok-2008-h23.github.io/assets/F2.2_familiepolitikk_23.pdf)
+
+Vedlegg 2 er en illustrasjon over endringer i reservasjonslønnen til kvinner før og etter de får barn, med og uten støtte. På vedlegget er det en graf der x-aksen er t (tid), og y-aksen er w (reservasjonslønn). Før kvinnen får barn er reservasjonslønnen på w~0,~ før individet får barn velger det å jobbe w~0~^r^ \< w~0~, og individet får barn ved t~0~ og da øker reservasjonslønnen til w^r^~1~. Reservasjonslønnen synker jo eldre barnet blir, grunnet lavere alternativkostnad. Dersom individet ikke har rett på permisjon, velger de å jobbe for ŵ. Dette gjør at de som har støtte kommer kjappere inn i arbeidsmarkedet igjen mens de som ikke har noe støtte bruker lengere tid på å komme seg inn igjen.
+
+Konklusjonen er at på kort sikt så er det negativt med høyt antall uker med støtte, men når det kommer til langsiktig høy yrkesdeltakelse så viser figurene at det er positivt med høy støtte.  
+
+-   Forklar hvorfor høy yrkesdeltakelse blant norske kvinner og høye barnetall er viktig for at den norske velferdsmodellen skal være økonomisk bærekraftig.
+
+Høy yrkesdeltakelse blant norske kvinner er viktig for å opprettholde norsk velferd, høy yrkesdeltakelse bidrar til høyere skatteinntekter som er med på å finansiere velferdsgoder for innbyggerne. Dette er spesielt viktig grunnet en aldrende befolkning som setter press på velferdssystemene langs landet, det er også derfor det er viktig med høye barnetall, både for at landet skal vokse befolknings-messig men også slik at vi skal klare å håndtere eldrebølgen.
+
+## **Utfordring 1.2**
+
+-   ***Lag et punktdiagram som viser sammenhengen mellom andelen av egenbetalinger (Household out-of-pocket payment, på x-aksen) og helsetjenesteforbruk pr. innbygger (Purchasing power standard (PPS) per inhabitant, på y-aksen) i europeiske land. Forklar sammenhengen mellom variablene du ser i figuren og gjør også rede for om det er korrelasjon mellom variablene i dette datasettet.***
+
+```{r, warning=FALSE}
+# Import df
+df_euro <- get_eurostat('hlth_sha11_hf', type = "label")
+
+# Filtering the values i need for y-axis. 
+eurostat <- df_euro %>% 
+  filter(time == "2019-01-01") %>%
+  filter(icha11_hf == "Household out-of-pocket payment") %>%
+  filter(unit == "Percentual share of total current health expenditure (CHE)")
+
+# Filtering the values i need for x-axis. 
+eurostat1 <- df_euro %>% 
+  filter(time == "2019-01-01") %>%
+  filter(unit == "Purchasing power standard (PPS) per inhabitant") %>%
+  filter(icha11_hf == "All financing schemes") 
+  
+# Merging the df´s. 
+total <- merge(eurostat,eurostat1,by=c("geo", "time"))
+
+# Removing the geo starting with "Eu". 
+total <- total[!grepl("^Eu", total$geo), ]
+
+# Plotting fig. 
+fig5 <- ggplot(data = total, aes(x = values.x, y = values.y, label = geo)) +
+  geom_point() +
+  geom_text(aes(label = geo), size = 2.4, vjust=-1, check_overlap = FALSE) +
+  geom_smooth(method = lm) +
+  labs(x = "Egenandel",
+       y = "helsetjenesteforbruk pr. innbygger",
+       title = "Figur 5 - Helsetjenesteforbruk m/egenandel") +
+  theme_bw()
+
+# Showing fig. 
+fig5
+```
+
+Figur 5 viser sammenhengen mellom egenandel og helsetjeneste forbruk per innbygger. Denne viser at det ligger en sammenheng mellom de, som at land med lav egenandel bruker helsetjenestene mer som Nederland, Luxembourg og Frankrike. Landene med høy egenandel bruker helsetjenestene mindre dette land som Bulgaria, Latvia og Hellas. Det er en korrelasjon mellom variablene, helsetjenesteforbruket per innbygger går ned for høyere egenandel, med unntak av noen land som feks Sveits. Avvikene kan skyldes bnp per person i landene, som at Kroatia feks har relativ lav bnp per person, og at Sveits har høy bnp per person.
+
+-   ***Forklar hvordan økt egenbetaling påvirker helsetjenesteforbruk og øker effektiviteten ved å bruke økonomisk teori om atferdsrisiko du har lært på kursets forelesninger og videoforelesninger. Bruk diagram(mer) i din besvarelse.***
+
+Helsetjenesteforbruk påvirkes av om man har null eller full helseforsikring, eller har egenandels betalinger. Ved null helseforsikring blir rasjonelle individer å konsumere inntil marginalnytten \> marginalkostnatnaden, mens ved full helseforsikring vil disse individene tilpasse seg som om prisen var null, og konsumere inntil marginalnytten er positiv. Ved en egenandel vil individer etterspørre helsetjenester inntil betalingsvilligheten er lik prisen de må betale.
+
+[![Vedlegg 3](images/Skjermbilde%202023-09-22%20kl.%2013.37.14.png)](https://uit-sok-2008-h23.github.io/assets/kap_9_2023_studenter.html)
+
+På vedlegg 3 er det en illustrasjon over endringene i etterspørsel om man har egenandel, der helsetjenester per år er på x-aksen, og pris per enhet er på y-aksen. Uten egenandel ligger helsetjenester per år på *M*~1~ , men etter innføring av egenandeler synker helsetjenester per år til *M*2 . Ved hjelp av egenandel så får man lettet på trykket i helsesektoren, man tar mindre turer til legen i året, dette øker igjen effektiviteten i samme sektor.
+
+-   ***Diskuter fordelingseffekter av økte egenandeler.***
+
+Når man snakker om øke egenandeler må man først finne ut om det er elastisk eller uelastisk etterspørsel. Hvis det er snakk om at man har uelastisk etterspørsel så vil dette si at en pasient etterspør den samme mengden uavhengig, dette vil si at man bør ha lave egenandeler, og høy forsikringsdekning. Hvis det er elastisk så er det motsatt, altså høy egenandel og lav forsikringdekning. Fordelingseffekter av økte egenandeler kan ha uheldige fordelingsmessige konsekvenser, dette fordi mennesker med størst behov er som oftes de som har lavest betalingsvillighet til det. En annen grunn er at de med høy betalingsvillighet ikke påvirkes når det kommer til forbruk av tjenestene.
+
+## Referanse
+
+Gram, K. H. (2022, april 1). *Statistisk sentralbyrå*. Hentet fra Likestillingsutfordringer i deltids-arbeid og utdanningsnivå:
+
+https://www.ssb.no/befolkning/likestilling/statistikk/indikatorer-for-kjonnslikestilling-i-kommunene/artikler/likestillingsutfordringer-i-deltidsarbeid-og-utdanningsniva
